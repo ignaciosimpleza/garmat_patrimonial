@@ -1195,11 +1195,12 @@ function _getPeriodMeta(i){
 }
 
 // Collect unique months and years
-const _allMonths = [...new Set(DATES.map((_,i)=>_getPeriodMeta(i).month))].sort((a,b)=>a-b);
-const _allYears  = [...new Set(DATES.map((_,i)=>_getPeriodMeta(i).year))].sort((a,b)=>a-b);
+let _allMonths = [...new Set(DATES.map((_,i)=>_getPeriodMeta(i).month))].sort((a,b)=>a-b);
+let _allYears  = [...new Set(DATES.map((_,i)=>_getPeriodMeta(i).year))].sort((a,b)=>a-b);
 
 let tablaActiveMonths = new Set(_allMonths);
 let tablaActiveYears  = new Set(_allYears);
+function _rebuildAllPeriods(){_allMonths=[...new Set(DATES.map((_,i)=>_getPeriodMeta(i).month))].sort((a,b)=>a-b);_allYears=[...new Set(DATES.map((_,i)=>_getPeriodMeta(i).year))].sort((a,b)=>a-b);_allMonths.forEach(m=>tablaActiveMonths.add(m));_allYears.forEach(y=>tablaActiveYears.add(y));}
 
 function _tablaGetSelectedIdx(){
   return DATES.map((_,i)=>{
@@ -1397,6 +1398,7 @@ function _addDateColumn(dateStr){
     const el=document.getElementById(id);if(!el)return;
     el.innerHTML='';DATES.forEach((d,i)=>el.add(new Option(d,i)));
   });
+  _rebuildAllPeriods();
   ['tabla-month-pills','tabla-year-pills'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
   return di;
 }
@@ -1596,8 +1598,16 @@ function confirmImport(){
   document.getElementById('paste-detected').textContent='';
   _csvRows=[]; _pasteRawRows=[];
 
+  const lastIdx=DATES.length-1, prevIdx=Math.max(0,lastIdx-1);
+  document.getElementById('sel-comp').value=lastIdx;
+  document.getElementById('sel-base').value=prevIdx;
+  document.getElementById('oaf-hasta').value=lastIdx;
+  document.getElementById('oaf-desde').value=prevIdx;
+  document.getElementById('dupont-periodo').value=lastIdx;
+
   histInited=false;
   updateDashboard();
+  if(typeof buildTablas==='function') buildTablas();
   if(typeof window.fbSave==='function') window.fbSave();
 
   alert(`✅ Importación completada\n• ${updatedRows} cuenta(s) actualizadas${newDates>0?'\n• '+newDates+' período(s) nuevo(s) agregado(s)':''}\n• Ratios recalculados · Guardado en Firebase`);
