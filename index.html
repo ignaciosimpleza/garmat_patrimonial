@@ -1686,8 +1686,11 @@ document.addEventListener('DOMContentLoaded',()=>{initSelectors();});
       const payload = {
         observaciones: JSON.parse(JSON.stringify(window.obsData || {})),
         detalle:       JSON.parse(JSON.stringify(window.DETALLE || [])),
-        dupont: JSON.parse(JSON.stringify(window._dpData || {})),
-        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        dupont:        JSON.parse(JSON.stringify(window._dpData || {})),
+        dates:         [...DATES],
+        dateLabels:    [...DATE_LABELS],
+        data:          JSON.parse(JSON.stringify(window.DATA || {})),
+        lastUpdated:   firebase.firestore.FieldValue.serverTimestamp()
       };
       DOC.set(payload, {merge: true})
         .then(function(){
