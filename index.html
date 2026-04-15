@@ -1578,6 +1578,16 @@ function confirmImport(){
     }
   });
 
+  // Recompute moneda breakdown from DETALLE
+  DATES.forEach((_,di)=>{
+    ['$','U$S','U$D'].forEach(m=>{
+      const mKey = m==='$'?'Peso':m==='U$S'?'US':'UD';
+      DATA['activo'+mKey][di] = DETALLE.filter(r=>r.r.startsWith('Activo')&&r.m===m).reduce((s,r)=>s+(r.v[di]||0),0);
+      DATA['pasivo'+mKey][di] = DETALLE.filter(r=>r.r.startsWith('Pasivo')&&r.m===m).reduce((s,r)=>s+(r.v[di]||0),0);
+      DATA['pn'+(mKey==='Peso'?'Peso':mKey==='US'?'US':'UD')][di] = (DATA['activo'+mKey][di]||0) - (DATA['pasivo'+mKey][di]||0);
+    });
+  });
+
   // Recompute derived totals + all ratios
   DATES.forEach((_,di)=>{
     DATA.activoTotal[di] =(DATA.activoCorriente[di]||0)+(DATA.activoNoCorriente[di]||0);
