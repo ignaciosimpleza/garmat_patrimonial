@@ -498,40 +498,62 @@ select:focus{border-color:var(--azul-pizarra)}
 
 <!-- ======== IMPORTAR ======== -->
 <section id="sec-importar" class="section">
-  
+
+  <!-- Restaurar -->
   <div class="card mb-4" style="border:1.5px solid #f7dc6f;background:#fefce8">
     <div class="card-title" style="color:#9a7700">⚠️ Restaurar datos originales</div>
-    <p style="font-size:12px;color:var(--gris-medio);margin:6px 0 14px">Si editaste datos por error o querés volver a los valores del Excel original, usá este botón. Se restaura todo y se guarda en Firebase.</p>
+    <p style="font-size:12px;color:var(--gris-medio);margin:6px 0 14px">Volvé a los valores del Excel original. Se guarda automáticamente en Firebase.</p>
     <button class="btn btn-ghost btn-sm" onclick="resetToOriginal()" style="border-color:#d4a017;color:#9a7700">↺ Restaurar datos originales</button>
   </div>
-  <div class="grid-2" style="gap:16px">
-    <div class="card">
-      <div class="card-title mb-4">⬇ Descargar CSV Plantilla</div>
-      <p style="font-size:12px;color:var(--gris-medio);margin-bottom:14px">Columnas: <code>Fecha, Rubro, Cuenta, Moneda, Monto</code></p>
-      <button class="btn btn-primary" onclick="downloadTemplateCSV()">⬇ Descargar plantilla CSV</button>
+
+  <!-- Paste import -->
+  <div class="card mb-4">
+    <div class="card-title mb-4">⬆ Pegar datos desde Excel</div>
+    <p style="font-size:12px;color:var(--gris-medio);margin-bottom:12px">
+      Copiá cualquier rango desde Excel (Ctrl+C) y pegalo en el área de abajo. Después indicás qué columna es cada cosa.
+    </p>
+
+    <!-- Step 1: paste area -->
+    <div id="paste-step1">
+      <textarea id="paste-area"
+        placeholder="Pegá acá los datos copiados de Excel (Ctrl+V)..."
+        style="width:100%;height:140px;font-family:'Sora',monospace;font-size:11px;padding:10px;border:2px dashed var(--border);border-radius:8px;resize:vertical;outline:none;background:#fafaf8;color:#2c3333"
+        oninput="pasteDetectColumns()"
+        onpaste="setTimeout(pasteDetectColumns,50)"
+      ></textarea>
+      <div id="paste-detected" style="font-size:11px;color:var(--gris-medio);margin-top:6px"></div>
     </div>
-    <div class="card">
-      <div class="card-title mb-4">⬆ Importar CSV</div>
-      <div class="import-box" onclick="document.getElementById('csv-input').click()">
-        <div style="font-size:32px">📂</div>
-        <p>Hacé clic o arrastrá tu archivo CSV aquí</p>
+
+    <!-- Step 2: column mapping (shown after paste) -->
+    <div id="paste-step2" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--gris-medio);margin-bottom:12px">
+        Paso 2 — Indicá qué representa cada columna
       </div>
-      <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="handleCSV(event)">
+      <div id="paste-col-map" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
+      <div style="font-size:11px;color:var(--gris-medio);margin-bottom:14px">
+        <strong>Fecha:</strong> formato DD/MM/AAAA &nbsp;·&nbsp;
+        <strong>Monto:</strong> cualquier formato numérico (coma o punto como decimal) &nbsp;·&nbsp;
+        <strong>Ignorar:</strong> para columnas que no se usan
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="pastePreview()">👁 Ver vista previa</button>
+    </div>
+
+    <!-- Step 3: preview & confirm -->
+    <div id="paste-step3" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--gris-medio);margin-bottom:10px">
+        Paso 3 — Confirmá la importación
+      </div>
+      <div id="paste-preview-info" style="background:#e8f8f2;border:1.5px solid #b7e8d2;border-radius:8px;padding:12px 16px;font-size:12px;color:#1e7d4f;margin-bottom:12px"></div>
+      <div class="table-scroll" style="max-height:260px">
+        <table class="data-table" id="paste-preview-table"></table>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end">
+        <button class="btn btn-ghost btn-sm" onclick="pasteReset()">← Volver</button>
+        <button class="btn btn-primary" onclick="confirmImport()">✓ Importar y guardar</button>
+      </div>
     </div>
   </div>
-  <div class="card mt-6">
-    <div class="card-title mb-4">Columnas esperadas en el CSV</div>
-    <table class="data-table">
-      <thead><tr><th>Columna</th><th>Descripción</th><th>Valores</th></tr></thead>
-      <tbody>
-        <tr><td><strong>Fecha</strong></td><td>Fecha de cierre</td><td>DD/MM/YYYY</td></tr>
-        <tr><td><strong>Rubro</strong></td><td>Categoría principal</td><td>Activo Corriente, Activo No Corriente, Pasivo Corriente, Pasivo No Corriente, Patrimonio Neto</td></tr>
-        <tr><td><strong>Cuenta</strong></td><td>Nombre de la cuenta</td><td>Texto libre</td></tr>
-        <tr><td><strong>Moneda</strong></td><td>Moneda del monto</td><td>$, U$S, U$D</td></tr>
-        <tr><td><strong>Monto</strong></td><td>Valor numérico</td><td>Número (punto decimal)</td></tr>
-      </tbody>
-    </table>
-  </div>
+
 </section>
 
 </main>
@@ -1328,17 +1350,286 @@ function clearObs(){
 // ========== CSV ==========
 function downloadCSV(){let rows=['Fecha,Rubro,Cuenta,Moneda,Monto'];DETALLE.forEach(row=>row.v.forEach((v,i)=>{if(v!=null)rows.push([DATES[i],row.r,row.c,row.m,v].join(','));}));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));a.download='patrimonial_cusillos.csv';a.click();}
 function downloadTemplateCSV(){const rows=['Fecha,Rubro,Cuenta,Moneda,Monto','30/09/2025,Activo Corriente,Caja,$,1000000'];const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));a.download='plantilla_patrimonial.csv';a.click();}
-let csvParsed=null,csvHeaders=[];
-function handleCSV(evt){const file=evt.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{const lines=e.target.result.trim().split('\n');csvHeaders=lines[0].split(',').map(h=>h.trim());csvParsed=lines.slice(1).map(l=>{const v=l.split(',');const o={};csvHeaders.forEach((h,i)=>o[h]=v[i]?.trim());return o;});openCSVModal();};reader.readAsText(file);}
-const FIELDS=['Fecha','Rubro','Cuenta','Moneda','Monto'];
-function openCSVModal(){const c=document.getElementById('csv-map-fields');c.innerHTML='';FIELDS.forEach(f=>{const g=document.createElement('div');g.className='form-group';g.innerHTML=`<label class="form-label">${f}</label><select class="form-select" id="map-${f}">${csvHeaders.map(h=>`<option value="${h}" ${h.toLowerCase()===f.toLowerCase()?'selected':''}>${h}</option>`).join('')}</select>`;c.appendChild(g);});document.getElementById('csv-modal').classList.add('open');}
-function closeModal(){document.getElementById('csv-modal').classList.remove('open');}
-function confirmCSVMap(){
-  const map={};FIELDS.forEach(f=>map[f]=document.getElementById('map-'+f).value);
-  const RMAP={'activo corriente':'activoCorriente','activo no corriente':'activoNoCorriente','pasivo corriente':'pasivoCorriente','pasivo no corriente':'pasivoNoCorriente','patrimonio neto':'patrimonioNeto'};
-  csvParsed.forEach(row=>{const fechaStr=row[map['Fecha']];const rubro=row[map['Rubro']]?.toLowerCase().trim();const monto=parseFloat(row[map['Monto']]);if(!fechaStr||isNaN(monto))return;const di=DATES.findIndex(d=>d===fechaStr);if(di===-1)return;const k=RMAP[rubro];if(k)DATA[k][di]=(DATA[k][di]||0)+monto;DATA.activoTotal[di]=DATA.activoCorriente[di]+DATA.activoNoCorriente[di];DATA.pasivoTotal[di]=DATA.pasivoCorriente[di]+DATA.pasivoNoCorriente[di];DATA.patrimonioNeto[di]=DATA.activoTotal[di]-DATA.pasivoTotal[di];});
-  closeModal();updateDashboard();histInited=false;alert('Datos importados. El dashboard se actualizó.');
+let _csvRows = [];      // final parsed rows ready to import
+let _pasteRawRows = []; // raw rows from paste (arrays of strings)
+
+// ── Number parser (handles 1.234,56 · 1234.56 · 1234,56) ─────────────────
+function _parseNum(s){
+  if(s===undefined||s===null||s==='') return NaN;
+  s=String(s).trim().replace(/\s/g,'');
+  if(s.indexOf('.')>-1&&s.indexOf(',')>-1) return parseFloat(s.replace(/\./g,'').replace(',','.'));
+  if(s.indexOf(',')>-1&&s.indexOf('.')===-1) return parseFloat(s.replace(',','.'));
+  return parseFloat(s);
 }
+
+// ── Rubro normalizer ───────────────────────────────────────────────────────
+function _normRubro(s){
+  if(!s) return '';
+  return s.trim().toLowerCase()
+    .replace(/pasivos?\s*no\s*corrientes?/,'pasivo no corriente')
+    .replace(/pasivos?\s*corrientes?/,'pasivo corriente')
+    .replace(/activos?\s*no\s*corrientes?/,'activo no corriente')
+    .replace(/activos?\s*corrientes?/,'activo corriente')
+    .replace(/patrimonio\s*netos?/,'patrimonio neto');
+}
+const RMAP={
+  'activo corriente':'activoCorriente','activo no corriente':'activoNoCorriente',
+  'pasivo corriente':'pasivoCorriente','pasivo no corriente':'pasivoNoCorriente',
+  'patrimonio neto':'patrimonioNeto'
+};
+const KEY2LABEL={
+  activoCorriente:'Activo Corriente',activoNoCorriente:'Activo No Corriente',
+  pasivoCorriente:'Pasivo Corriente',pasivoNoCorriente:'Pasivo No Corriente',
+  patrimonioNeto:'Patrimonio Neto'
+};
+
+// ── Date slot helpers ──────────────────────────────────────────────────────
+function _ensureDateSlot(di){
+  Object.keys(DATA).forEach(k=>{ if(Array.isArray(DATA[k])) while(DATA[k].length<=di) DATA[k].push(0); });
+  DETALLE.forEach(row=>{ while(row.v.length<=di) row.v.push(0); });
+}
+function _addDateColumn(dateStr){
+  const parts=dateStr.split('/'),m=+parts[1],y=parts[2].slice(2);
+  DATES.push(dateStr); DATE_LABELS.push((m===9?'Sep':'Mar')+'-'+y);
+  const di=DATES.length-1;
+  _ensureDateSlot(di);
+  ['sel-base','sel-comp','oaf-desde','oaf-hasta','dupont-periodo'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    el.innerHTML='';DATES.forEach((d,i)=>el.add(new Option(d,i)));
+  });
+  ['tabla-month-pills','tabla-year-pills'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
+  return di;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PASTE IMPORT
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Column role options
+const COL_ROLES = ['Ignorar','Fecha','Rubro','Cuenta','Moneda','Monto'];
+
+function pasteDetectColumns(){
+  const text = document.getElementById('paste-area').value.trim();
+  if(!text){ document.getElementById('paste-step2').style.display='none'; return; }
+
+  // Split into rows and cells (tab-separated from Excel)
+  const lines = text.split(/\r?\n/).filter(l=>l.trim());
+  _pasteRawRows = lines.map(l=>l.split('\t').map(c=>c.trim()));
+
+  const nCols = Math.max(..._pasteRawRows.map(r=>r.length));
+  const detected = document.getElementById('paste-detected');
+  detected.textContent = `${_pasteRawRows.length} filas · ${nCols} columnas detectadas`;
+
+  // Auto-guess roles from first row
+  const firstRow = _pasteRawRows[0];
+  function guessRole(val){
+    const v=(val||'').toLowerCase().trim();
+    if(/fecha|date|period/i.test(v)) return 'Fecha';
+    if(/rubro|categ/i.test(v)) return 'Rubro';
+    if(/cuenta|account|name/i.test(v)) return 'Cuenta';
+    if(/moneda|mon|curr/i.test(v)) return 'Moneda';
+    if(/monto|valor|amount|importe|total/i.test(v)) return 'Monto';
+    // Try by content of second row
+    const secondVal = (_pasteRawRows[1]||[])[firstRow.indexOf(val)]||'';
+    if(/^\d{2}\/\d{2}\/\d{4}$/.test(secondVal.trim())) return 'Fecha';
+    if(!isNaN(_parseNum(secondVal)) && secondVal.trim()!=='') return 'Monto';
+    if(/^\$|u\$s|u\$d/i.test(secondVal.trim())) return 'Moneda';
+    return 'Ignorar';
+  }
+
+  // Build column mapping UI
+  const mapEl = document.getElementById('paste-col-map');
+  mapEl.innerHTML='';
+  for(let ci=0; ci<nCols; ci++){
+    const colSample = _pasteRawRows.slice(0,3).map(r=>r[ci]||'').join(' / ');
+    const autoRole = guessRole(firstRow[ci]);
+    const wrap = document.createElement('div');
+    wrap.style='background:var(--crema-fondo);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:130px;max-width:180px';
+    wrap.innerHTML=`
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gris-medio);margin-bottom:4px">Columna ${ci+1}</div>
+      <div style="font-size:10px;color:#2c3333;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${colSample}">${colSample||'(vacía)'}</div>
+      <select id="col-role-${ci}" style="width:100%;font-family:'Sora',sans-serif;font-size:11px;padding:4px 6px;border:1.5px solid var(--border);border-radius:5px;background:white;cursor:pointer">
+        ${COL_ROLES.map(r=>`<option value="${r}" ${r===autoRole?'selected':''}>${r}</option>`).join('')}
+      </select>`;
+    mapEl.appendChild(wrap);
+  }
+
+  document.getElementById('paste-step2').style.display='block';
+  document.getElementById('paste-step3').style.display='none';
+}
+
+function pastePreview(){
+  const nCols = _pasteRawRows[0]?.length||0;
+
+  // Read column roles
+  const roleMap={}; // role → colIndex (last wins)
+  for(let ci=0;ci<nCols;ci++){
+    const sel=document.getElementById('col-role-'+ci);
+    if(sel&&sel.value!=='Ignorar') roleMap[sel.value]=ci;
+  }
+
+  const required=['Fecha','Monto'];
+  const missing=required.filter(r=>roleMap[r]===undefined);
+  if(missing.length){ alert('Faltan columnas obligatorias: '+missing.join(', ')); return; }
+
+  // Determine which rows are headers (if first row has role labels) vs data
+  const iF=roleMap['Fecha'],iR=roleMap['Rubro'],iC=roleMap['Cuenta'],
+        iM=roleMap['Moneda'],iV=roleMap['Monto'];
+
+  _csvRows=[];
+  const warn=[];
+  // Check if first row is a header (non-numeric in monto column)
+  const startRow = isNaN(_parseNum(_pasteRawRows[0][iV])) ? 1 : 0;
+
+  _pasteRawRows.slice(startRow).forEach((cols,li)=>{
+    const fecha=(cols[iF]||'').trim();
+    const rubroRaw=iR!==undefined?(cols[iR]||'').trim():'';
+    const cuenta=iC!==undefined?(cols[iC]||'').trim():'';
+    const moneda=iM!==undefined?(cols[iM]||'').trim():'';
+    const monto=_parseNum(cols[iV]||'');
+
+    if(!fecha||isNaN(monto)) return;
+
+    const rubroNorm=_normRubro(rubroRaw);
+    const rubroKey=RMAP[rubroNorm];
+    if(rubroRaw&&!rubroKey){ warn.push(`Fila ${li+startRow+1}: rubro desconocido "${rubroRaw}"`); }
+
+    _csvRows.push({fecha,rubro:rubroRaw,rubroKey,cuenta,moneda,monto});
+  });
+
+  if(!_csvRows.length){ alert('No se encontraron filas válidas. Verificá que la columna Fecha tenga fechas y la columna Monto tenga números.'); return; }
+
+  // Summary
+  const byDate={};
+  _csvRows.forEach(r=>{
+    if(!byDate[r.fecha]) byDate[r.fecha]={n:0,isNew:!DATES.includes(r.fecha)};
+    byDate[r.fecha].n++;
+  });
+  const dateLines=Object.entries(byDate).map(([d,v])=>
+    `<strong>${d}</strong>: ${v.n} filas${v.isNew?' <span style="background:#fef3cd;color:#9a5700;padding:1px 6px;border-radius:10px;font-size:10px">período nuevo</span>':''}`
+  ).join('&nbsp;&nbsp;|&nbsp;&nbsp;');
+
+  document.getElementById('paste-preview-info').innerHTML=
+    `${_csvRows.length} filas para importar &nbsp;·&nbsp; ${dateLines}`+
+    (warn.length?`<br><span style="color:var(--terracota);font-size:11px">${warn.join('<br>')}</span>`:'');
+
+  // Table preview
+  let h=`<thead><tr><th>Fecha</th><th>Rubro</th><th>Cuenta</th><th>Mon.</th><th class="num">Monto</th></tr></thead><tbody>`;
+  _csvRows.slice(0,15).forEach(r=>{
+    const mp=r.moneda==='$'?'pill-peso':r.moneda==='U$S'?'pill-us':r.moneda==='U$D'?'pill-ud':'';
+    h+=`<tr>
+      <td>${r.fecha}</td>
+      <td style="font-size:10px;color:var(--gris-medio)">${r.rubro||'—'}</td>
+      <td>${r.cuenta||'—'}</td>
+      <td>${r.moneda?`<span class="pill ${mp}" style="font-size:9px">${r.moneda}</span>`:'—'}</td>
+      <td class="num">${fmtN(r.monto)}</td>
+    </tr>`;
+  });
+  if(_csvRows.length>15) h+=`<tr><td colspan="5" style="text-align:center;color:var(--gris-medio);font-size:11px">... y ${_csvRows.length-15} filas más</td></tr>`;
+  h+='</tbody>';
+  document.getElementById('paste-preview-table').innerHTML=h;
+  document.getElementById('paste-step3').style.display='block';
+  document.getElementById('paste-step3').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function pasteReset(){
+  document.getElementById('paste-step3').style.display='none';
+  _csvRows=[];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIRM IMPORT (shared by all entry points)
+// ═══════════════════════════════════════════════════════════════════════════
+function confirmImport(){
+  if(!_csvRows.length) return;
+  let newDates=0, updatedRows=0;
+
+  _csvRows.forEach(({fecha,rubroKey,cuenta,moneda,monto})=>{
+    let di=DATES.indexOf(fecha);
+    if(di===-1){ di=_addDateColumn(fecha); newDates++; }
+    if(!rubroKey) return; // unknown rubro: skip
+
+    const detLabel=KEY2LABEL[rubroKey];
+
+    if(cuenta&&moneda){
+      let row=DETALLE.find(r=>r.r===detLabel&&r.c===cuenta&&r.m===moneda);
+      if(!row){
+        row={r:detLabel,c:cuenta,m:moneda,v:Array(DATES.length).fill(0)};
+        DETALLE.push(row);
+      }
+      while(row.v.length<DATES.length) row.v.push(0);
+      row.v[di]=monto;
+      if(cuenta==='Stock Granos'&&moneda==='U$S') DATA.stockGranos[di]=monto;
+      if(cuenta==='Sementera'    &&moneda==='U$S') DATA.sementera[di]=monto;
+      if(cuenta==='Insumos'      &&moneda==='U$S') DATA.insumos[di]=monto;
+      DATA[rubroKey][di]=DETALLE.filter(r=>r.r===detLabel).reduce((s,r)=>s+(r.v[di]||0),0);
+      updatedRows++;
+    } else if(!cuenta&&!moneda&&rubroKey==='patrimonioNeto'){
+      DATA.patrimonioNeto[di]=monto;
+    }
+  });
+
+  // Recompute derived totals + all ratios
+  DATES.forEach((_,di)=>{
+    DATA.activoTotal[di] =(DATA.activoCorriente[di]||0)+(DATA.activoNoCorriente[di]||0);
+    DATA.pasivoTotal[di] =(DATA.pasivoCorriente[di]||0)+(DATA.pasivoNoCorriente[di]||0);
+    if(!DATA.patrimonioNeto[di]) DATA.patrimonioNeto[di]=DATA.activoTotal[di]-DATA.pasivoTotal[di];
+    const AC=DATA.activoCorriente[di],ANC=DATA.activoNoCorriente[di],AT=DATA.activoTotal[di];
+    const PC=DATA.pasivoCorriente[di],PNC=DATA.pasivoNoCorriente[di],PT=DATA.pasivoTotal[di],PN=DATA.patrimonioNeto[di];
+    const SG=DATA.stockGranos[di]||0,SM=DATA.sementera[di]||0,IN=DATA.insumos[di]||0;
+    DATA.liquidez[di]           = PC>0?AC/PC:null;
+    DATA.pruebaAcida[di]        = PC>0?(AC-SG-SM-IN)/PC:null;
+    DATA.capitalTrabajo[di]     = AT>0?AC/AT:null;
+    DATA.capitalTrabajoNeto[di] = AC>0?(AC-PC)/AC:null;
+    DATA.capitalTrabajoFin[di]  = AC>0?PC/AC:null;
+    DATA.respaldo[di]           = AT>0?ANC/AT:null;
+    DATA.endeuActivo[di]        = AT>0?PT/AT:null;
+    DATA.endeuPNeto[di]         = PN>0?PT/PN:null;
+    DATA.pncPasivo[di]          = PT>0?PNC/PT:null;
+    DATA.pcPasivo[di]           = PT>0?PC/PT:null;
+  });
+
+  // Reset paste UI
+  document.getElementById('paste-area').value='';
+  document.getElementById('paste-step2').style.display='none';
+  document.getElementById('paste-step3').style.display='none';
+  document.getElementById('paste-detected').textContent='';
+  _csvRows=[]; _pasteRawRows=[];
+
+  histInited=false;
+  updateDashboard();
+  if(typeof window.fbSave==='function') window.fbSave();
+
+  alert(`✅ Importación completada\n• ${updatedRows} cuenta(s) actualizadas${newDates>0?'\n• '+newDates+' período(s) nuevo(s) agregado(s)':''}\n• Ratios recalculados · Guardado en Firebase`);
+}
+
+// ── Download helpers ───────────────────────────────────────────────────────
+function downloadTemplateCSV(){
+  const rows=['Fecha\tRubro\tCuenta\tMoneda\tMonto'];
+  DETALLE.forEach(row=>{
+    const last=row.v[row.v.length-1];
+    if(last!=null) rows.push([DATES[DATES.length-1],row.r,row.c,row.m,last].join('\t'));
+  });
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+rows.join('\n')],{type:'text/plain;charset=utf-8'}));
+  a.download='plantilla_garmat.txt'; a.click();
+}
+function downloadCSV(){
+  let rows=['Fecha\tRubro\tCuenta\tMoneda\tMonto'];
+  DETALLE.forEach(row=>row.v.forEach((v,i)=>{
+    if(v!=null&&v!==0) rows.push([DATES[i],row.r,row.c,row.m,v].join('\t'));
+  }));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+rows.join('\n')],{type:'text/plain;charset=utf-8'}));
+  a.download='datos_garmat.txt'; a.click();
+}
+
+// ── Legacy stubs (referenced by old buttons elsewhere) ─────────────────────
+function handleCSV(){}
+function handleCSVDrop(){}
+function cancelImport(){ pasteReset(); }
+
+
 // ========== CHART DEFAULTS ==========
 Chart.defaults.font.family='Sora';Chart.defaults.font.size=11;Chart.defaults.color='#7F7F7F';
 // ========== INIT ==========
