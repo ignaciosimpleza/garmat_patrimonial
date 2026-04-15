@@ -716,7 +716,7 @@ function showSection(id,el){
   const[t,s]=titles[id]||['',''];
   document.getElementById('topbar-title').textContent=t;
   document.getElementById('topbar-sub').textContent=s;
-  if(id==='historial'&&!histInited){initHistCharts();histInited=true;}
+  if(id==='historial'){initHistCharts();histInited=true;}
   if(id==='tabla')buildTablas();
   if(id==='oaf')buildOAF();
 }
@@ -795,14 +795,21 @@ function buildDashCharts(bi,ci){
 
 // ========== HISTORY ==========
 let histInited=false;
+let _histCharts=[];
 function initHistCharts(){
-  new Chart(document.getElementById('ch-h-bal'),{type:'bar',data:{labels:DATE_LABELS,datasets:[
+  _histCharts.forEach(function(ch){try{ch.destroy();}catch(e){}});
+  _histCharts=[];
+  // Destroy previous charts so new periods show correctly
+  _histCharts.forEach(function(ch){if(ch)ch.destroy();});
+  _histCharts=[];
+
+  _histCharts.push(new Chart(document.getElementById('ch-h-bal'),{type:'bar',data:{labels:DATE_LABELS,datasets:[
     {label:'Activo Corriente',data:DATA.activoCorriente,backgroundColor:'#6C868C',stack:'a'},
     {label:'Activo No Corriente',data:DATA.activoNoCorriente,backgroundColor:'#32E8A9',stack:'a'},
     {label:'Patrimonio Neto',data:DATA.patrimonioNeto,backgroundColor:'#2B3A3C',stack:'f'},
     {label:'Pasivo No Corriente',data:DATA.pasivoNoCorriente,backgroundColor:'#F7DC6F',stack:'f'},
     {label:'Pasivo Corriente',data:DATA.pasivoCorriente,backgroundColor:'#CD6155',stack:'f'},
-  ]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:10}},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${fmtN(ctx.parsed.y)} U$S`}}},scales:{x:{grid:{display:false}},y:{grid:{color:'#f0ece8'},ticks:{callback:v=>fmtN(v)}}}}});
+  ]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:10}},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${fmtN(ctx.parsed.y)} U$S`}}},scales:{x:{grid:{display:false}},y:{grid:{color:'#f0ece8'},ticks:{callback:v=>fmtN(v)}}}}}));
   buildRatioTable();
   [['ch-hm-activo',['$ Pesos','U$S Oficial','U$D Dólar'],['activoPeso','activoUS','activoUD']],
    ['ch-hm-pasivo',['$ Pesos','U$S Oficial','U$D Dólar'],['pasivoPeso','pasivoUS','pasivoUD']],
@@ -818,7 +825,7 @@ function initHistCharts(){
       }),
       backgroundColor:COLORS[i],stack:'s'
     }));
-    new Chart(document.getElementById(id),{
+    _histCharts.push(new Chart(document.getElementById(id),{
       type:'bar',
       data:{labels:DATE_LABELS,datasets},
       options:{responsive:true,maintainAspectRatio:true,
@@ -826,16 +833,16 @@ function initHistCharts(){
           tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}`}}},
         scales:{x:{stacked:true,grid:{display:false}},
           y:{stacked:true,max:100,grid:{color:'#f0ece8'},ticks:{callback:v=>v+'%'}}}}
-    });
+    }));
   });
   // PN evolution line
-  new Chart(document.getElementById('ch-h-pntotal'),{type:'line',data:{labels:DATE_LABELS,datasets:[{label:'Patrimonio Neto',data:DATA.patrimonioNeto,borderColor:'#32E8A9',backgroundColor:'rgba(50,232,169,0.1)',fill:true,tension:0.3,pointRadius:4,borderWidth:2}]},options:lineOpts()});
+  _histCharts.push(new Chart(document.getElementById('ch-h-pntotal'),{type:'line',data:{labels:DATE_LABELS,datasets:[{label:'Patrimonio Neto',data:DATA.patrimonioNeto,borderColor:'#32E8A9',backgroundColor:'rgba(50,232,169,0.1)',fill:true,tension:0.3,pointRadius:4,borderWidth:2}]},options:lineOpts()}));
   // ΔPN absoluta (moved to ch-h-resultado canvas; chart order: Evolución / Var Abs / Var %)
   const varPNabs=DATA.patrimonioNeto.map((v,i)=>i===0?null:+(v-DATA.patrimonioNeto[i-1]).toFixed(0));
-  new Chart(document.getElementById('ch-h-resultado'),{type:'bar',data:{labels:DATE_LABELS,datasets:[{label:'Var. Patrimonial Absoluta',data:varPNabs,backgroundColor:varPNabs.map(v=>v==null?'transparent':v>=0?'#6C868C':'#CD6155')}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fmtN(ctx.parsed.y)+' U$S'}}},scales:{x:{grid:{display:false}},y:{grid:{color:'#f0ece8'},ticks:{callback:v=>fmtN(v)}}}}});
+  _histCharts.push(new Chart(document.getElementById('ch-h-resultado'),{type:'bar',data:{labels:DATE_LABELS,datasets:[{label:'Var. Patrimonial Absoluta',data:varPNabs,backgroundColor:varPNabs.map(v=>v==null?'transparent':v>=0?'#6C868C':'#CD6155')}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fmtN(ctx.parsed.y)+' U$S'}}},scales:{x:{grid:{display:false}},y:{grid:{color:'#f0ece8'},ticks:{callback:v=>fmtN(v)}}}}}));
   // Var % relativa
   const varPNpct=DATA.varPN.map(v=>v!=null?+(v*100).toFixed(2):null);
-  new Chart(document.getElementById('ch-h-varpn'),{type:'bar',data:{labels:DATE_LABELS,datasets:[{label:'Variación PN %',data:varPNpct,backgroundColor:varPNpct.map(v=>v==null?'transparent':v>=0?'#6C868C':'#CD6155')}]},options:barOpts('%')});
+  _histCharts.push(new Chart(document.getElementById('ch-h-varpn'),{type:'bar',data:{labels:DATE_LABELS,datasets:[{label:'Variación PN %',data:varPNpct,backgroundColor:varPNpct.map(v=>v==null?'transparent':v>=0?'#6C868C':'#CD6155')}]},options:barOpts('%')}));
 }
 function buildRatioTable(){
   const ratios=[['Liquidez General','liquidez','n',2],['Prueba Ácida','pruebaAcida','n',2],['Endeud. / Activo','endeuActivo','%',1],['Endeud. / P. Neto','endeuPNeto','%',1],['Capital de Trabajo','capitalTrabajo','%',1],['CT Genuino','capitalTrabajoNeto','%',1],['Respaldo Activo Fijo','respaldo','%',1],['Calidad Deuda (PNC/Pasivo)','pncPasivo','%',1],['Pasivo Corriente / Pasivo','pcPasivo','%',1]];
@@ -1749,6 +1756,7 @@ document.addEventListener('DOMContentLoaded',()=>{initSelectors();});
             DATES.forEach(function(d2,i){el.add(new Option(d2,i));});
             el.value=Math.min(cur,DATES.length-1);
           });
+          histInited=false;
           if(typeof updateDashboard==='function') updateDashboard();
         }
 
