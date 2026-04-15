@@ -1608,7 +1608,10 @@ function confirmImport(){
   histInited=false;
   updateDashboard();
   if(typeof buildTablas==='function') buildTablas();
-  if(typeof window.fbSave==='function') window.fbSave();
+  if(typeof window.fbSave==='function'){
+    clearTimeout(window._fbSaveTimer);
+    window.fbSave();
+  }
 
   alert(`✅ Importación completada\n• ${updatedRows} cuenta(s) actualizadas${newDates>0?'\n• '+newDates+' período(s) nuevo(s) agregado(s)':''}\n• Ratios recalculados · Guardado en Firebase`);
 }
@@ -1715,19 +1718,35 @@ document.addEventListener('DOMContentLoaded',()=>{initSelectors();});
 
         // Restore edited DETALLE values
         if(d.detalle && Array.isArray(d.detalle) && window.DETALLE){
-          d.detalle.forEach(function(saved){
-            const row = window.DETALLE.find(function(r){
-              return r.r === saved.r && r.c === saved.c && r.m === saved.m;
-            });
-            if(row) row.v = saved.v.slice();
-          });
-          if(typeof updateDashboard === 'function') updateDashboard();
-          // Rebuild table UI with restored values
-          if(typeof buildTablas === 'function'){
-            // Only rebuild if the tabla section has been visited (table exists)
-            const tbl = document.getElementById('tbl-detalle');
-            if(tbl && tbl.innerHTML) buildTablas();
+          // Restore new dates first
+          if(d.dates && Array.isArray(d.dates)){
+            d.dates.forEach(function(dt){ if(!DATES.includes(dt) && typeof _addDateColumn==='function') _addDateColumn(dt); });
           }
+          if(d.dateLabels && Array.isArray(d.dateLabels)){
+            d.dateLabels.forEach(function(lbl,i){ DATE_LABELS[i]=lbl; });
+          }
+          // Restore DATA arrays
+          if(d.data && window.DATA){
+            Object.keys(d.data).forEach(function(k){
+              if(Array.isArray(d.data[k]) && window.DATA[k]){
+                d.data[k].forEach(function(v,i){ window.DATA[k][i]=v; });
+              }
+            });
+          }
+          // Restore DETALLE: update existing + push new rows
+          d.detalle.forEach(function(saved){
+            var row=window.DETALLE.find(function(r){return r.r===saved.r&&r.c===saved.c&&r.m===saved.m;});
+            if(row){ row.v=saved.v.slice(); }
+            else{ window.DETALLE.push({r:saved.r,c:saved.c,m:saved.m,v:saved.v.slice()}); }
+          });
+          // Re-populate selectors with any new dates
+          ['sel-base','sel-comp','oaf-desde','oaf-hasta','dupont-periodo'].forEach(function(id){
+            var el=document.getElementById(id);if(!el)return;
+            var cur=+el.value; el.innerHTML='';
+            DATES.forEach(function(d2,i){el.add(new Option(d2,i));});
+            el.value=Math.min(cur,DATES.length-1);
+          });
+          if(typeof updateDashboard==='function') updateDashboard();
         }
 
         // Restore DuPont per-period data
