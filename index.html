@@ -946,7 +946,7 @@ function buildOAF(){
   ], netTipO, netTipA);
 
   // ── Donut charts ──────────────────────────────────────────
-  const dOpts=(lbls,data,cols)=>({type:'doughnut',data:{labels:lbls,datasets:[{data,backgroundColor:cols,borderWidth:2,borderColor:'white'}]},options:{responsive:true,maintainAspectRatio:true,cutout:'58%',plugins:{legend:{position:'bottom',labels:{boxWidth:8,padding:5,font:{size:9}}},tooltip:{callbacks:{label:ctx=>{const t=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+(b||0),0);return ` ${ctx.label}: ${fmtN(ctx.parsed)} (${t>0?Math.round(ctx.parsed/t*100):0}%)`}}}}}});
+  const dOpts=(lbls,data,cols)=>({type:'doughnut',data:{labels:lbls,datasets:[{data,backgroundColor:cols,borderWidth:2,borderColor:'white'}]},options:{responsive:true,maintainAspectRatio:true,cutout:'55%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:8,font:{size:10},filter:(item,chart)=>{const v=chart.datasets[0].data[item.index];return v!=null&&v>0;}}},tooltip:{callbacks:{label:ctx=>{const t=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+(b||0),0);return ` ${ctx.label}: ${fmtN(ctx.parsed)} (${t>0?Math.round(ctx.parsed/t*100):0}%)`}}}}}});
 
   if(oafCharts.origenMon)oafCharts.origenMon.destroy();
   oafCharts.origenMon=new Chart(document.getElementById('oaf-ch-origen'),dOpts(
