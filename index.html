@@ -1961,7 +1961,11 @@ document.addEventListener('DOMContentLoaded',()=>{initSelectors();});
 
   // Mutable DOC reference — Settings can update this
   // Empresa persists in localStorage — survives reloads
-  var _col   = localStorage.getItem('simpleza_empresa') || null;
+  // Empresa: localStorage first, then URL hash as fallback (works in incognito + iframes)
+  var _hashCol = (window.location.hash||'').replace('#','').trim().toLowerCase() || null;
+  var _lsCol   = null;
+  try { _lsCol = localStorage.getItem('simpleza_empresa') || null; } catch(e){}
+  var _col = _lsCol || _hashCol || 'cusillos';  // default for this deployment
   var _docId = 'patrimonial';
   function getDoc(){ return db.collection(_col).doc(_docId); }
 
@@ -1971,7 +1975,9 @@ document.addEventListener('DOMContentLoaded',()=>{initSelectors();});
     _col = col.trim().toLowerCase(); _docId = docId;
     window._fbCollection = _col;
     window._fbDocName    = _docId;
-    localStorage.setItem('simpleza_empresa', _col);
+    try { localStorage.setItem('simpleza_empresa', _col); } catch(e){}
+    // Also update URL hash so it works in incognito/iframes
+    try { window.location.hash = _col; } catch(e){}
   };
   window._fbCollection = _col;
   window._fbDocName    = _docId;
@@ -2022,7 +2028,10 @@ document.addEventListener('DOMContentLoaded',()=>{initSelectors();});
   var _fbLoading = false;  // prevent fbSave during load
 
   window.fbLoad=function(){
-    if(!_col) _col=localStorage.getItem('simpleza_empresa')||null;
+    if(!_col){
+      try { _col=localStorage.getItem('simpleza_empresa')||null; } catch(e){}
+      if(!_col) _col=(window.location.hash||'').replace('#','').trim().toLowerCase()||null;
+    }
     if(!_col){ syncSet('err','Sin empresa — configurá en ⚙️ Configuración'); return; }
     _fbLoading=true;
     syncSet('saving','Conectando...');
